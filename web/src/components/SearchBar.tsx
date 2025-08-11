@@ -6,7 +6,7 @@ export default function SearchBar({ value, onChange }: { value: string; onChange
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label="Search notes"
-      className="w-full rounded-lg bg-blue-200 border border-red-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+      className="w-full rounded-lg bg-blue-100 border border-red-300 px-3 py-2 text-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200"
     />
   );
 }

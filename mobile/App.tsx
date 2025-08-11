@@ -45,31 +45,31 @@ export default function App() {
       <StatusBar style={Platform.OS === "ios" ? "dark" : "auto"} />
       <Stack.Navigator
         screenOptions={{
-          // ✅ Make navigation headers use Poppins too
-          headerTitleStyle: { fontFamily: "Poppins_600SemiBold" },
-          contentStyle: { backgroundColor: "#f8fafc" },
+          headerStyle: { backgroundColor: "#0a0823" },
+          headerTitleStyle: { color: "#fff" },
+          headerTintColor: "#fff", // ← arrow color
         }}
       >
         <Stack.Screen
           name="Notes"
           component={NotesListScreen}
           options={{
-            title: "Offline-First Notes",
+            title: "Offline-First Notes(Mob)",
             headerStyle: { backgroundColor: "#0a0823ff" },
             headerTitleStyle: { color: "#fff" },
-            headerTitleAlign: 'center',    
+            headerTitleAlign: "center",
           }}
         />
 
         <Stack.Screen
           name="Edit"
           component={EditNoteScreen}
-          options={{ title: "Edit Note",
+          options={{
+            title: "Edit Note",
             headerStyle: { backgroundColor: "#0a0823ff" },
             headerTitleStyle: { color: "#fff" },
-            headerTitleAlign: 'center',  
-           }}
-
+            headerTitleAlign: "center",
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
