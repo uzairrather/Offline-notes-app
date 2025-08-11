@@ -3,6 +3,8 @@ import { useDebounce } from "./hooks/useDebounce";
 import { useNotes } from "./hooks/useNotes";
 import { notesStore } from "./store/notesStore";
 import { hydrateFromStorage, syncWithServer } from "./api/sync";
+import { canReachServer } from "./api/client";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import SyncStatus from "./components/SyncStatus";
 import SearchBar from "./components/SearchBar";
 import NoteList from "./components/NoteList";
@@ -13,8 +15,14 @@ export default function App() {
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 300);
   const notes = useNotes(debounced);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+
+  // online / reachability state for disabling Sync
+  const online = useOnlineStatus();
+  const [reachable, setReachable] = useState<boolean>(true);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -23,68 +31,109 @@ export default function App() {
     })();
   }, []);
 
+  // Check server reachability when online state changes (and on mount)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const ok = online ? await canReachServer() : false;
+      if (mounted) setReachable(ok);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [online]);
+
   const selectedNote: Note | null = useMemo(
     () => (selectedId ? notes.find((n) => n.id === selectedId) || null : null),
     [selectedId, notes]
   );
 
   async function handleSync() {
-    const dirty = notesStore.getDirty();
-    const serverTime = await syncWithServer(
-      () => dirty,
-      async (serverNotes) => {
-        notesStore.applyFromServer(serverNotes);
-        const ids = dirty.map((d) => d.id);
-        notesStore.clearDirty(ids);
-      }
-    );
-    setLastSync(new Date(serverTime).toISOString()); // store as string
+    // Guard: do not sync when offline or server unreachable
+    if (!online || !reachable || syncing) return;
+    setSyncing(true);
+    try {
+      const dirty = notesStore.getDirty();
+      const serverTime = await syncWithServer(
+        () => dirty,
+        async (serverNotes) => {
+          notesStore.applyFromServer(serverNotes);
+          const ids = dirty.map((d) => d.id);
+          notesStore.clearDirty(ids);
+        }
+      );
+      setLastSync(new Date(serverTime).toISOString());
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleNew() {
     const id = notesStore.create();
     setSelectedId(id);
-    await handleSync(); // ← trigger sync after create
+    // Try to sync, but it's a no-op if disabled
+    handleSync();
   }
 
   async function handleDelete(id: string) {
     notesStore.softDelete(id);
     if (selectedId === id) setSelectedId(null);
-    await handleSync(); // ← trigger sync after delete
+    handleSync();
   }
 
   async function handlePatch(patch: Partial<Pick<Note, "title" | "body">>) {
     if (!selectedId) return;
     notesStore.update(selectedId, patch);
-    await handleSync(); // ← trigger sync after edit
+    handleSync();
   }
 
+  // Auto-sync once we regain browser connectivity
   useEffect(() => {
     function onlineSync() {
-      handleSync().catch(() => {});
+      handleSync();
     }
     window.addEventListener("online", onlineSync);
     return () => window.removeEventListener("online", onlineSync);
   }, []);
 
+  const syncDisabled = !online || !reachable || syncing;
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="relative flex items-center justify-between border-b border-gray-200 px-4 py-3 bg-[#0a0823] text-white">
-  <h1 className="absolute left-1/2 -translate-x-1/2 m-0 text-lg font-semibold">
-    Offline-First Notes (Web)
-  </h1>
+        <h1 className="absolute left-1/2 -translate-x-1/2 m-0 text-lg font-semibold">
+          Offline-First Notes (Web)
+        </h1>
 
-  <div className="flex items-center gap-3 ml-auto">
-    <div className="shrink-0"><SyncStatus lastSync={lastSync} /></div>
-    <button
-      onClick={handleSync}
-      className="rounded-lg border text-black border-gray-300 bg-blue-200 px-3 py-1.5 text-sm hover:bg-gray-500 active:translate-y-px"
-    >
-      Sync
-    </button>
-  </div>
-</header>
+        <div className="flex items-center gap-3 ml-auto">
+          <div className="shrink-0">
+            {/* Read-only status display (no button inside) */}
+            <SyncStatus lastSync={lastSync} />
+          </div>
 
+          <button
+            onClick={handleSync}
+            disabled={syncDisabled}
+            title={
+              !online
+                ? "Offline — cannot sync"
+                : !reachable
+                ? "Server unreachable"
+                : syncing
+                ? "Syncing…"
+                : "Sync now"
+            }
+            className={`rounded-lg border text-black px-3 py-1.5 text-sm
+              ${
+                syncDisabled
+                  ? "bg-gray-300 border-gray-300 cursor-not-allowed"
+                  : "bg-blue-200 border-gray-300 hover:bg-gray-500 active:translate-y-px"
+              }`}
+          >
+            {syncing ? "Syncing…" : "Sync"}
+          </button>
+        </div>
+      </header>
 
       <main className="grid flex-1 gap-4 p-4 md:grid-cols-[320px_1fr] bg-slate-400">
         <aside className="flex h-[calc(100vh-160px)] flex-col">
@@ -100,7 +149,7 @@ export default function App() {
         </aside>
 
         <section className="min-h-[400px]">
-          <NoteEditor note={selectedNote} />
+          <NoteEditor note={selectedNote} onChange={handlePatch} />
         </section>
       </main>
 

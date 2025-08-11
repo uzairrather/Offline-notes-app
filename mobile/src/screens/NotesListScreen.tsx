@@ -132,9 +132,18 @@ useEffect(() => {
           <Text style={{ color: '#374151', marginRight: 12 }}>{online ? 'Online' : 'Offline'}</Text>
           <TouchableOpacity
             onPress={onRefresh}
-            style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#d1d5db', backgroundColor: '#fff' }}
+            disabled={!online}
+            style={{ 
+              paddingHorizontal: 12, 
+              paddingVertical: 6, 
+              borderRadius: 8, 
+              borderWidth: 1, 
+              borderColor: online ? '#d1d5db' : '#9ca3af', 
+              backgroundColor: online ? '#fff' : '#f3f4f6',
+              opacity: online ? 1 : 0.6
+            }}
           >
-            <Text >Sync</Text>
+            <Text style={{ color: online ? '#000' : '#9ca3af' }}>Sync</Text>
           </TouchableOpacity>
         </View>
       </View>

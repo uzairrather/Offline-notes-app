@@ -3,7 +3,7 @@ import React from "react";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { Text, TextInput, Platform } from "react-native";
+import { Text, TextInput, Platform, View } from "react-native";
 import {
   useFonts,
   Poppins_400Regular,
@@ -12,6 +12,7 @@ import {
 
 import NotesListScreen from "./src/screens/NotesListScreen";
 import EditNoteScreen from "./src/screens/EditNoteScreen";
+import { useOnlineStatus } from "./src/hooks/useOnlineStatus"; // <-- NEW
 
 type RootStackParamList = {
   Notes: undefined;
@@ -19,6 +20,24 @@ type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Small header badge to show Online/Offline using the new hook
+function HeaderStatus() {
+  const online = useOnlineStatus();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginRight: 6 }}>
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 999,
+          backgroundColor: online ? "#34d399" : "#ef4444",
+        }}
+      />
+      <Text style={{ color: "#fff", fontSize: 12 }}>{online ? "Online" : "Offline"}</Text>
+    </View>
+  );
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -47,7 +66,8 @@ export default function App() {
         screenOptions={{
           headerStyle: { backgroundColor: "#0a0823" },
           headerTitleStyle: { color: "#fff" },
-          headerTintColor: "#fff", // ← arrow color
+          headerTintColor: "#fff",
+          headerRight: () => <HeaderStatus />, // <-- NEW: add status on all screens
         }}
       >
         <Stack.Screen

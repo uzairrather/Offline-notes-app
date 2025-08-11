@@ -1,4 +1,5 @@
-import { apiPost } from './client';
+// web/src/api/sync.ts
+import { apiPost, canReachServer } from './client';
 import type { Note, SyncPayload, SyncResponse } from '../types';
 import {
   storageGetAllNotes,
@@ -9,14 +10,21 @@ import {
 
 /**
  * Sync flow:
- * - If this is the FIRST sync (lastSync is null), push ALL local notes.
- * - Otherwise, push only notes returned by getDirtyNotes().
+ * - If server is NOT reachable → abort (do not change lastSync).
+ * - If FIRST sync (lastSync is null) → push ALL local notes.
+ * - Otherwise → push only dirty notes from getDirtyNotes().
  * - Always pull server changes since `since`.
  */
 export async function syncWithServer(
   getDirtyNotes: () => Note[],
   onServerNotes?: (notes: Note[]) => Promise<void> | void
 ) {
+  // Block sync when "offline" (server unreachable, even if localhost is up)
+  const reachable = await canReachServer();
+  if (!reachable) {
+    throw new Error('Server not reachable; skipping sync while offline.');
+  }
+
   const since = await storageGetLastSync();
 
   let changes: Note[];
@@ -41,7 +49,7 @@ export async function syncWithServer(
     }
   }
 
-  // Save last sync time
+  // Save last sync time ONLY on success
   await storageSetLastSync(resp.serverTime);
   return resp.serverTime;
 }
